@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { ClipboardList, CircleDollarSign, Loader2 } from 'lucide-react';
 import { createClient } from '@supabase/supabase-js';
-import { MobileNav } from './MobileNav';
+
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -205,7 +205,7 @@ export default function CounterCard() {
         />
       </div>
 
-      <MobileNav />
+   
     </div>
   );
 }
