@@ -1,38 +1,65 @@
 "use client";
 
-import React, { useState } from 'react';
-import { Home, BarChart3, Settings, User } from 'lucide-react';
+import React from 'react';
+import { Home, BarChart3, LogOut } from 'lucide-react';
+import { createClient } from '@supabase/supabase-js';
 
-export const MobileNav = () => {
-  const [activeTab, setActiveTab] = useState('home');
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+);
 
-  const navItems = [
-    { id: 'home', icon: Home, label: 'Početna' },
-    { id: 'stats', icon: BarChart3, label: 'Statistika' },
-    { id: 'profile', icon: User, label: 'Profil' },
-    { id: 'settings', icon: Settings, label: 'Podešavanja' },
-  ];
+interface MobileNavProps {
+  activeTab: 'home' | 'stats';
+  setActiveTab: (tab: 'home' | 'stats') => void;
+}
+
+export const MobileNav: React.FC<MobileNavProps> = ({ activeTab, setActiveTab }) => {
+  
+  const handleLogout = async () => {
+    const potvrda = window.confirm("Da li sigurno želiš da se odjaviš?");
+    if (!potvrda) return;
+
+    await supabase.auth.signOut();
+    // Nakon odjave, osvežavamo stranu što će automatski okinuti našu
+    // zaštitu u CounterCard-u i preusmeriti korisnika na /auth
+    window.location.href = "/auth";
+  };
 
   return (
-    <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-[#111622]/90 backdrop-blur-lg border-t border-slate-800/60 px-6 py-2 z-50">
-      <div className="flex justify-between items-center max-w-md mx-auto">
-        {navItems.map((item) => {
-          const Icon = item.icon;
-          const isActive = activeTab === item.id;
-          return (
-            <button
-              key={item.id}
-              onClick={() => setActiveTab(item.id)}
-              className={`flex flex-col items-center gap-1 p-2 rounded-xl transition-colors duration-200 ${
-                isActive ? 'text-blue-400' : 'text-slate-500 hover:text-slate-400'
-              }`}
-            >
-              <Icon size={20} strokeWidth={isActive ? 2.5 : 2} />
-              <span className="text-[10px] font-medium tracking-wide">{item.label}</span>
-            </button>
-          );
-        })}
-      </div>
-    </nav>
+    <div className="fixed bottom-0 left-0 right-0 bg-[#111622]/90 backdrop-blur-md border-t border-slate-800/60 px-6 py-3 flex justify-around items-center z-50 md:max-w-md md:mx-auto md:bottom-4 md:rounded-2xl md:border">
+      
+      {/* Dugme za Početnu */}
+      <button
+        onClick={() => setActiveTab('home')}
+        className={`flex flex-col items-center gap-1 transition-colors duration-200 ${
+          activeTab === 'home' ? 'text-blue-500 font-medium' : 'text-slate-400 hover:text-slate-200'
+        }`}
+      >
+        <Home size={22} />
+        <span className="text-xs">Početna</span>
+      </button>
+
+      {/* Dugme za Statistiku */}
+      <button
+        onClick={() => setActiveTab('stats')}
+        className={`flex flex-col items-center gap-1 transition-colors duration-200 ${
+          activeTab === 'stats' ? 'text-blue-500 font-medium' : 'text-slate-400 hover:text-slate-200'
+        }`}
+      >
+        <BarChart3 size={22} />
+        <span className="text-xs">Statistika</span>
+      </button>
+
+      {/* NOVO: Dugme za Odjavu */}
+      <button
+        onClick={handleLogout}
+        className="flex flex-col items-center gap-1 text-rose-400 hover:text-rose-300 transition-colors duration-200"
+      >
+        <LogOut size={22} />
+        <span className="text-xs">Odjavi se</span>
+      </button>
+
+    </div>
   );
 };

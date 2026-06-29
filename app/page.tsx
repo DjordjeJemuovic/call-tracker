@@ -64,7 +64,7 @@
 //   );
 // }
 
-import Sidebar from "@/components/Sidebar";
+
 import  CounterCard from '@/components/CounterCard';
 import { ClipboardList, CircleDollarSign } from 'lucide-react'; // Možeš koristiti ikonice po želji
 
@@ -80,11 +80,13 @@ export default function Home() {
  
   return (
     <main className="flex min-h-screen bg-[#070B14]">
-      <Sidebar />
+     
 
       <section className="flex-1 p-8">
         <h1 className="text-white text-4xl">
-          <CounterCard />
+          <div className="w-full flex items-center justify-center">
+            <CounterCard />
+          </div>
         </h1>
       </section>
     </main>
