@@ -1,28 +1,38 @@
 "use client";
 
-import React, { useState } from 'react';
-import { ClipboardList, CircleDollarSign } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { ClipboardList, CircleDollarSign, Loader2 } from 'lucide-react';
+import { createClient } from '@supabase/supabase-js';
+import { MobileNav } from './MobileNav'; // Proveri da li je MobileNav.tsx u istom folderu
+
+// Inicijalizacija Supabase klijenta
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+);
 
 // ==========================================
-// REUSABLE KARTICA (CounterCard)
+// MALA POD-KOMPONENTA ZA JEDNU KARTICU
 // ==========================================
-interface CounterCardProps {
+interface SingleCardProps {
   title: string;
   count: number;
   labelUnderCount: string;
   icon: React.ElementType;
   buttonText: string;
   variant: 'blue' | 'green';
+  isLoading: boolean;
   onButtonClick: () => void;
 }
 
-const CounterCard: React.FC<CounterCardProps> = ({
+const SingleCard: React.FC<SingleCardProps> = ({
   title,
   count,
   labelUnderCount,
   icon: Icon,
   buttonText,
   variant,
+  isLoading,
   onButtonClick,
 }) => {
   const isBlue = variant === 'blue';
@@ -30,7 +40,7 @@ const CounterCard: React.FC<CounterCardProps> = ({
   const buttonColor = isBlue ? 'bg-blue-600 hover:bg-blue-700 text-white' : 'bg-emerald-600 hover:bg-emerald-700 text-white';
 
   return (
-    <div className="bg-[#111622] border border-slate-800/60 rounded-2xl p-6 flex flex-col justify-between w-full max-w-sm min-h-[220px] shadow-xl">
+    <div className="bg-[#111622] border border-slate-800/60 rounded-2xl p-6 flex flex-col justify-between w-full md:max-w-sm min-h-[220px] shadow-xl">
       <div className="flex items-center gap-4">
         <div className={`p-3 rounded-xl ${iconBgColor}`}>
           <Icon size={24} strokeWidth={2} />
@@ -45,63 +55,143 @@ const CounterCard: React.FC<CounterCardProps> = ({
 
       <button
         onClick={onButtonClick}
-        className={`w-full py-3 px-4 rounded-xl font-semibold flex items-center justify-center gap-2 transition-colors duration-200 text-sm tracking-wide ${buttonColor}`}
+        disabled={isLoading}
+        className={`w-full py-3 px-4 rounded-xl font-semibold flex items-center justify-center gap-2 transition-colors duration-200 text-sm tracking-wide disabled:opacity-50 ${buttonColor}`}
       >
-        <span className="text-lg font-light">+</span>
-        {buttonText.toUpperCase()}
+        {isLoading ? (
+          <Loader2 className="animate-spin" size={18} />
+        ) : (
+          <>
+            <span className="text-lg font-light">+</span>
+            {buttonText.toUpperCase()}
+          </>
+        )}
       </button>
     </div>
   );
 };
 
 // ==========================================
-// GLAVNA SEKCIJA SA LOKALNIM STANJEM
+// GLAVNA KOMPONENTA (CounterCard)
 // ==========================================
-interface AnketePonudeSekcijaProps {
-  initialSurveyCount?: number;
-  initialOfferCount?: number;
-}
+export default function CounterCard() {
+  const [surveys, setSurveys] = useState(0);
+  const [offers, setOffers] = useState(0);
 
-export default function AnketePonudeSekcija({ 
-  initialSurveyCount = 54, 
-  initialOfferCount = 23 
-}: AnketePonudeSekcijaProps) {
-  
-  // Lokalno stanje kreće od vrednosti koje proslediš (ili default 54 i 23)
-  const [surveys, setSurveys] = useState(initialSurveyCount);
-  const [offers, setOffers] = useState(initialOfferCount);
+  const [loadingInitial, setLoadingInitial] = useState(true);
+  const [loadingSurvey, setLoadingSurvey] = useState(false);
+  const [loadingOffer, setLoadingOffer] = useState(false);
 
-  const handleAddSurvey = () => {
-    setSurveys((prev) => prev + 1);
+  const danasnjiDatum = new Date().toISOString().split('T')[0];
+
+  // Povlačenje podataka iz baze pri učitavanju komponente
+  useEffect(() => {
+    const fetchDanasnjePodatke = async () => {
+      try {
+        const { data } = await supabase
+          .from('daily_stats')
+          .select('surveys_count, offers_count')
+          .eq('date', danasnjiDatum)
+          .maybeSingle();
+
+        if (data) {
+          setSurveys(data.surveys_count);
+          setOffers(data.offers_count);
+        }
+      } catch (err) {
+        console.error('Greška pri učitavanju podataka:', err);
+      } finally {
+        setLoadingInitial(false);
+      }
+    };
+
+    fetchDanasnjePodatke();
+  }, [danasnjiDatum]);
+
+  // Povećavanje Anketa (UPSERT)
+  const handleAddSurvey = async () => {
+    setLoadingSurvey(true);
+    const sledeciBroj = surveys + 1;
+    try {
+      const { error } = await supabase
+        .from('daily_stats')
+        .upsert({ 
+          date: danasnjiDatum, 
+          surveys_count: sledeciBroj,
+          offers_count: offers 
+        });
+
+      if (error) throw error;
+      setSurveys(sledeciBroj);
+    } catch (err) {
+      console.error('Greška sa bazom (ankete):', err);
+    } finally {
+      setLoadingSurvey(false);
+    }
   };
 
-  const handleAddOffer = () => {
-    setOffers((prev) => prev + 1);
+  // Povećavanje Ponuda (UPSERT)
+  const handleAddOffer = async () => {
+    setLoadingOffer(true);
+    const sledeciBroj = offers + 1;
+    try {
+      const { error } = await supabase
+        .from('daily_stats')
+        .upsert({ 
+          date: danasnjiDatum, 
+          surveys_count: surveys, 
+          offers_count: sledeciBroj
+        });
+
+      if (error) throw error;
+      setOffers(sledeciBroj);
+    } catch (err) {
+      console.error('Greška sa bazom (ponude):', err);
+    } finally {
+      setLoadingOffer(false);
+    }
   };
+
+  // Loader dok povlači podatke iz baze za danas
+  if (loadingInitial) {
+    return (
+      <div className="flex items-center justify-center min-h-[220px] w-full">
+        <Loader2 className="animate-spin text-blue-500" size={32} />
+      </div>
+    );
+  }
 
   return (
-    <div className="flex gap-6 items-center justify-center w-full p-4">
-      {/* Kartica za Ankete */}
-      <CounterCard
-        title="Ankete"
-        count={surveys}
-        labelUnderCount="danas"
-        icon={ClipboardList}
-        buttonText="Anketa"
-        variant="blue"
-        onButtonClick={handleAddSurvey}
-      />
+    <div className="w-full max-w-4xl px-4 pb-24 md:pb-4">
+      {/* Responzivni kontejner za kartice */}
+      <div className="flex flex-col md:flex-row gap-6 items-center justify-center w-full">
+        {/* Kartica za Ankete */}
+        <SingleCard
+          title="Ankete"
+          count={surveys}
+          labelUnderCount="danas"
+          icon={ClipboardList}
+          buttonText="Anketa"
+          variant="blue"
+          isLoading={loadingSurvey}
+          onButtonClick={handleAddSurvey}
+        />
 
-      {/* Kartica za Ponude */}
-      <CounterCard
-        title="Ponude"
-        count={offers}
-        labelUnderCount="danas"
-        icon={CircleDollarSign}
-        buttonText="Ponuda"
-        variant="green"
-        onButtonClick={handleAddOffer}
-      />
+        {/* Kartica za Ponude */}
+        <SingleCard
+          title="Ponude"
+          count={offers}
+          labelUnderCount="danas"
+          icon={CircleDollarSign}
+          buttonText="Ponuda"
+          variant="green"
+          isLoading={loadingOffer}
+          onButtonClick={handleAddOffer}
+        />
+      </div>
+
+      {/* Mobilna navigacija na dnu ekrana */}
+      <MobileNav />
     </div>
   );
 }

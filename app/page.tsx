@@ -84,7 +84,7 @@ export default function Home() {
 
       <section className="flex-1 p-8">
         <h1 className="text-white text-4xl">
-          <CounterCard  initialSurveyCount={0} initialOfferCount={0}/>
+          <CounterCard />
         </h1>
       </section>
     </main>
