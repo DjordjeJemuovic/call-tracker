@@ -3,9 +3,8 @@
 import React, { useState, useEffect } from 'react';
 import { ClipboardList, CircleDollarSign, Loader2 } from 'lucide-react';
 import { createClient } from '@supabase/supabase-js';
-import { MobileNav } from './MobileNav'; // Proveri da li je MobileNav.tsx u istom folderu
+import { MobileNav } from './MobileNav';
 
-// Inicijalizacija Supabase klijenta
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
@@ -77,6 +76,9 @@ const SingleCard: React.FC<SingleCardProps> = ({
 export default function CounterCard() {
   const [surveys, setSurveys] = useState(0);
   const [offers, setOffers] = useState(0);
+  
+  // ID ulogovanog korisnika
+  const [userId, setUserId] = useState<string | null>(null);
 
   const [loadingInitial, setLoadingInitial] = useState(true);
   const [loadingSurvey, setLoadingSurvey] = useState(false);
@@ -84,14 +86,27 @@ export default function CounterCard() {
 
   const danasnjiDatum = new Date().toISOString().split('T')[0];
 
-  // Povlačenje podataka iz baze pri učitavanju komponente
+  // Provera sesije i povlačenje podataka za ulogovanog korisnika
   useEffect(() => {
-    const fetchDanasnjePodatke = async () => {
+    const proveriKorisnikaIPovuciPodatke = async () => {
       try {
+        const { data: { session } } = await supabase.auth.getSession();
+        
+        // Ako niko nije ulogovan, preusmeri ga na /auth stranu
+        if (!session?.user) {
+          window.location.href = "/auth";
+          return;
+        }
+
+        const currentUserId = session.user.id;
+        setUserId(currentUserId);
+
+        // Povlačenje podataka IZMENJENO: filtriramo po datumu I po user_id-ju
         const { data } = await supabase
           .from('daily_stats')
           .select('surveys_count, offers_count')
           .eq('date', danasnjiDatum)
+          .eq('user_id', currentUserId)
           .maybeSingle();
 
         if (data) {
@@ -105,17 +120,19 @@ export default function CounterCard() {
       }
     };
 
-    fetchDanasnjePodatke();
+    proveriKorisnikaIPovuciPodatke();
   }, [danasnjiDatum]);
 
-  // Povećavanje Anketa (UPSERT)
+  // Povećavanje Anketa (UPSERT sa user_id)
   const handleAddSurvey = async () => {
+    if (!userId) return;
     setLoadingSurvey(true);
     const sledeciBroj = surveys + 1;
     try {
       const { error } = await supabase
         .from('daily_stats')
         .upsert({ 
+          user_id: userId,
           date: danasnjiDatum, 
           surveys_count: sledeciBroj,
           offers_count: offers 
@@ -130,14 +147,16 @@ export default function CounterCard() {
     }
   };
 
-  // Povećavanje Ponuda (UPSERT)
+  // Povećavanje Ponuda (UPSERT sa user_id)
   const handleAddOffer = async () => {
+    if (!userId) return;
     setLoadingOffer(true);
     const sledeciBroj = offers + 1;
     try {
       const { error } = await supabase
         .from('daily_stats')
         .upsert({ 
+          user_id: userId,
           date: danasnjiDatum, 
           surveys_count: surveys, 
           offers_count: sledeciBroj
@@ -152,7 +171,6 @@ export default function CounterCard() {
     }
   };
 
-  // Loader dok povlači podatke iz baze za danas
   if (loadingInitial) {
     return (
       <div className="flex items-center justify-center min-h-[220px] w-full">
@@ -163,9 +181,7 @@ export default function CounterCard() {
 
   return (
     <div className="w-full max-w-4xl px-4 pb-24 md:pb-4">
-      {/* Responzivni kontejner za kartice */}
       <div className="flex flex-col md:flex-row gap-6 items-center justify-center w-full">
-        {/* Kartica za Ankete */}
         <SingleCard
           title="Ankete"
           count={surveys}
@@ -177,7 +193,6 @@ export default function CounterCard() {
           onButtonClick={handleAddSurvey}
         />
 
-        {/* Kartica za Ponude */}
         <SingleCard
           title="Ponude"
           count={offers}
@@ -190,7 +205,6 @@ export default function CounterCard() {
         />
       </div>
 
-      {/* Mobilna navigacija na dnu ekrana */}
       <MobileNav />
     </div>
   );
