@@ -84,7 +84,7 @@ export default function CounterCard() {
   const [loadingSurvey, setLoadingSurvey] = useState(false);
   const [loadingOffer, setLoadingOffer] = useState(false);
 
-  const danasnjiDatum = new Date().toISOString().split('T')[0];
+  const danasnjiDatum = new Date().toLocaleDateString('sv-SE');
 
   // Provera sesije i povlačenje podataka za ulogovanog korisnika
   useEffect(() => {
